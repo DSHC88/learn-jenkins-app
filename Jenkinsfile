@@ -8,17 +8,29 @@ pipeline {
     environment {
         MAVEN_OPTS = '-Dmaven.repo.local=${WORKSPACE}/.m2/repository' // Define a custom repository path
     }
-    stages{
+    stages {
+        stage('Checkout') {
+            steps {
+                // Ensure the code is checked out to the workspace
+                checkout([
+                    $class: 'GitSCM', 
+                    branches: [[name: '*/main']], 
+                    userRemoteConfigs: [[url: 'https://github.com/DSHC88/learn-jenkins-app.git']]
+                ])
+            }
+        }
         stage('Install Dependencies') {
             steps {
+                // Confirm the presence of pom.xml before proceeding
+                sh 'ls -l $WORKSPACE'
+                // Run Maven install
                 sh 'mvn clean install'
             }
         }
     }
-        post {
+    post {
         always {
             cleanWs()
         }
     }
-
 }
