@@ -5,5 +5,12 @@ pipeline {
             args '-v /dev/bus/usb:/dev/bus/usb'  // For device access if needed
         }
     }
+    stages{
+        stage('Install Dependencies') {
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+    }
 
 }
