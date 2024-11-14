@@ -5,6 +5,9 @@ pipeline {
             args '-v /dev/bus/usb:/dev/bus/usb'  // For device access if needed
         }
     }
+    environment {
+        MAVEN_OPTS = '-Dmaven.repo.local=${WORKSPACE}/.m2/repository' // Define a custom repository path
+    }
     stages{
         stage('Install Dependencies') {
             steps {
