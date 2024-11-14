@@ -1,0 +1,169 @@
+pipeline {
+    agent {
+        docker {
+            image 'maven:3.9.9-amazoncorretto-23-alpine'
+            args '-v /dev/bus/usb:/dev/bus/usb'  // For device access if needed
+        }
+    }
+
+    environment {
+        APP_PACKAGE = 'com.yourapp.package'
+        ANDROID_DEVICE_NAME = 'your_android_device_id'
+        IOS_DEVICE_NAME = 'your_ios_device_id'
+        ANDROID_PLATFORM_VERSION = 'your_android_version'
+        IOS_PLATFORM_VERSION = 'your_ios_version'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git credentialsId: 'your-bitbucket-credentials-id', url: 'https://bitbucket.org/your-team/your-repo.git', branch: 'main'
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh 'mvn clean install'
+            }
+        }
+
+        stage('Run Android Tests') {
+            steps {
+                script {
+                    sh 'appium &'
+                }
+                
+                sh """
+                    mvn clean test -DplatformName=Android \
+                                   -DdeviceName=${ANDROID_DEVICE_NAME} \
+                                   -DplatformVersion=${ANDROID_PLATFORM_VERSION} \
+                                   -DappPackage=${APP_PACKAGE} \
+                                   -DappActivity=.MainActivity
+                """
+            }
+        }
+
+        stage('Run iOS Tests') {
+            steps {
+                script {
+                    sh 'appium &'
+                }
+                
+                sh """
+                    mvn clean test -DplatformName=iOS \
+                                   -DdeviceName=${IOS_DEVICE_NAME} \
+                                   -DplatformVersion=${IOS_PLATFORM_VERSION} \
+                                   -DbundleId=com.yourapp.bundleid \
+                                   -DautomationName=XCUITest
+                """
+            }
+        }
+
+        stage('Generate Reports') {
+            steps {
+                sh 'mvn serenity:aggregate'
+            }
+        }
+
+        stage('Publish Reports') {
+            steps {
+                publishHTML(target: [
+                    reportDir: 'target/site/serenity',
+                    reportFiles: 'index.html',
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportName: 'Serenity Report'
+                ])
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'target/*.log', allowEmptyArchive: true
+            junit 'target/surefire-reports/*.xml'
+            cleanWs()
+        }
+    }
+}
+
+
+
+
+----------------
+pipeline {
+    agent any
+
+    stages {
+        /*
+
+        stage('Build') {
+            agent {
+                docker {
+                    image 'node:23-alpine'
+                    reuseNode true
+                }
+            }
+            steps {
+                sh '''
+                    ls -la
+                    node --version
+                    npm --version
+                    npm ci
+                    npm run build
+                    ls -la
+                '''
+            }
+        }
+        */
+
+        stage('Tests') {
+            parallel {
+                stage('Unit tests') {
+                    agent {
+                        docker {
+                            image 'node:23-alpine'
+                            reuseNode true
+                        }
+                    }
+
+                    steps {
+                        sh '''
+                            #test -f build/index.html
+                            npm test
+                        '''
+                    }
+                    post {
+                        always {
+                            junit 'jest-results/junit.xml'
+                        }
+                    }
+                }
+
+                stage('E2E') {
+                    agent {
+                        docker {
+                            image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
+                            reuseNode true
+                        }
+                    }
+
+                    steps {
+                        sh '''
+                            npm install serve
+                            node_modules/.bin/serve -s build &
+                            sleep 10
+                            npx playwright test  --reporter=html
+                        '''
+                    }
+
+                    post {
+                        always {
+                            publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright HTML Report', reportTitles: '', useWrapperFileDirectly: true])
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
