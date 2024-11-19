@@ -85,4 +85,4 @@ Thumbs.db
 # Archivos de git
 *.gitkeep
 
-*.Dockerfile
+*Dockerfile
