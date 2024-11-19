@@ -3,11 +3,6 @@ pipeline {
 
     stages {
         stage('Build') {
-            agent {
-                docker {
-                    reuseNode true
-                }
-            }
             steps {
                 sh '''
                     ls -la
@@ -21,12 +16,6 @@ pipeline {
         }
 
         stage('Test') {
-            agent {
-                docker {
-                    reuseNode true
-                }
-            }
-
             steps {
                 sh '''
                     test -f build/index.html
